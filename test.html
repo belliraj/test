@@ -1,0 +1,175 @@
+<html ng-app="">
+<head>
+    <style>
+        #diagramContainer {
+            padding: 20px;
+            width:80%; height: 200px;
+            border: 1px solid gray;
+			position:relative;
+        }
+
+        .item {
+            height:40px; width: 80px;
+            border: 1px solid blue;
+			position:absolute;
+
+        }
+    </style>
+</head>
+<body>
+	<select id="nodetypetext">
+		  <option value="action">action</option>
+		  <option value="decision">decision</option>
+		 
+		</select>
+    <div id="diagramContainer">
+
+    </div>
+
+    <p><a href="http://www.freedevelopertutorials.com/jsplumb-tutorial/introduction/">Visit the full jsPlumb-Tutorial</a> to learn it and see many more interesting examples.</p>
+
+    <script src="http://cdnjs.cloudflare.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+    <script src="http://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.9.2/jquery-ui.min.js"></script>
+    <script src="http://cdnjs.cloudflare.com/ajax/libs/jsPlumb/1.4.1/jquery.jsPlumb-1.4.1-all-min.js"></script>
+	<script src="dagre.js"></script>
+	
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.6.1/css/font-awesome.min.css">
+
+    <script>
+		var g = new dagre.graphlib.Graph();
+		g.setGraph({});
+		g.setDefaultEdgeLabel(function() { return {}; });
+		
+		console.log("graphhh==",g);
+		var idCount=0;
+		function generateNodeId(){
+			return "node_"+(idCount++);
+		};
+        function Node(id, type,next) {
+          this.id = id;
+          this.type = type;
+          this.next=next;
+        };
+
+       function Workflow() {
+          this.startNode;
+          this.init = function() {
+            var endNode=new Node("node-end", "end");
+			this.startNode=new Node("node-start", "start",endNode);
+          };
+		  this.addNode=function(source,target){
+			var type=$("#nodetypetext").val();
+			console.log("node type==="+type);
+			if ("decision"===type){
+				
+				var node1=new Node(generateNodeId(),"dummy",target);
+				var node2=new Node(generateNodeId(),"dummy",target);
+				var decisionNode=new Node(generateNodeId(),"decision");
+			}else{
+				var node=new Node(generateNodeId(),type,target);
+				source.next=node;
+			}
+		  }
+        };
+
+        var workflow = new Workflow();
+        workflow.init();
+        var renderNode=function(node){
+          //var node = workflow.node;
+          var source = node;
+          var target = node.next;
+          if ($('#'+source.id).length === 0) {
+            var sourceNode=$("<div class='item node'>").attr("id", source.id).text(source.id);
+            $("#diagramContainer").append(sourceNode);
+          }
+          if ($('#'+target.id).length === 0) {
+            var targetNode=$("<div class='item node'>").attr("id", target.id).text(target.id);
+            $("#diagramContainer").append(targetNode);
+          }
+
+          jsPlumb.connect({
+              source:source.id,
+              target:target.id,
+			   connector:[ "Flowchart", { curviness:100} ],
+			  paintStyle:{lineWidth:1,strokeStyle:'rgb(243,230,18)'},
+              endpoint:["Rectangle", { width:10, height:8 } ],
+			  endpointStyle:{fillStyle:'rgb(243,229,0)'},
+			  anchors: ["Bottom", "Top"],
+              overlays:[
+                    ["Label" , { id: source.id+"_"+target.id+"_"+"connector", cssClass :"fa fa-plus",
+                    events:{
+                      click:function(labelOverlay, originalEvent) {
+                        var connectorSource = source;
+                        var connectorTarget = target;
+                        workflow.addNode(source,target);
+                        console.log(connectorSource);
+                        console.log(connectorTarget);
+                        console.log("click on label overlay for :", labelOverlay.component);
+                        setTimeout(function(){
+                      //    jsPlumb.repaintEverything();
+                          rerender();
+                        },1);
+
+                      }
+                    }
+                  }]
+              ]
+          });
+          if (node.next && node.next.type!=="end"){
+              renderNode(node.next);
+          }
+
+        }
+       
+        var rerender=function(){
+            //$("#diagramContainer").empty();
+            jsPlumb.detachEveryConnection();
+            renderWorkflow(workflow);
+			
+        };
+		
+		 var renderWorkflow = function(workflow) {
+          console.log("Workflow...", workflow);
+          renderNode(workflow.startNode);
+		  layout();
+        };
+		
+        jsPlumb.ready(function() {
+          renderWorkflow(workflow);
+	
+        });
+		function layout(){
+		
+			var g = new dagre.graphlib.Graph();
+			g.setGraph({rankdir:"TB",  ranksep: 75});
+			g.setDefaultEdgeLabel(function() { return {}; });
+			var nodes = $(".node"); 
+			for (var i = 0; i < nodes.length; i++) {
+				var n = $(nodes[i]);
+				g.setNode(n.attr("id"), {width: n.width(), height: n.height()});
+			}
+			var edges = jsPlumb.getConnections();
+			for (var i = 0; i < edges.length; i++) {
+				var c = edges[i];
+				g.setEdge(c.source.attr("id"),c.target.attr("id"));
+			}
+			// calculate the layout (i.e. node positions)
+			dagre.layout(g);
+			g.nodes().forEach(function(v) {
+				try{
+				console.log("y=="+g.node(v).y );
+				console.log("x=="+g.node(v).x );
+				$("#" + v).css("left", g.node(v).x + "px");
+				$("#" + v).css("top",g.node(v).y + "px");
+				}catch(err){
+				}
+				
+			});
+			jsPlumb.repaintEverything();
+		}
+		
+		
+    </script>
+
+</body>
+</html>
