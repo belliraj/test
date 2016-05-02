@@ -3,7 +3,7 @@
     <style>
         #diagramContainer {
             padding: 20px;
-            width:80%; height: 200px;
+            width:95%; height: 80%;
             border: 1px solid gray;
 			position:relative;
         }
@@ -45,8 +45,9 @@
   		function generateNodeId(){
   			return "node_"+(idCount++);
   		};
-        function Node(id, type) {
+        function Node(id, type, name) {
           this.id = id;
+          this.name = name || 'Node';
           this.type = type;
           this.transitions = [];
         };
@@ -75,36 +76,47 @@
         };
 
         Workflow.prototype.addNode = function(source, target){
-          var type=$("#nodetypetext").val();
+          var type = $("#nodetypetext").val();
           console.log("node type==="+type);
-          if ("decision"===type){
-            // var node1=new Node(generateNodeId(),"dummy",target);
-            // var node2=new Node(generateNodeId(),"dummy",target);
-            // var decisionNode=new Node(generateNodeId(),"decision");
+          var oldTrans = null;
+          if (source.transitions.length === 1) {
+            oldTrans = source.transitions[0];
+          } else {
+            source.transitions.forEach(function(tran){
+              if (tran.targetNode === target) {
+                oldTrans = tran;
+                return false;
+              }
+            });
+          }
+          source.removeTransition(oldTrans);
+
+          if ("decision" === type){
+            var decisionNode = new Node(generateNodeId(), "decision", "Decision");
+            var leftNode = new Node(generateNodeId(), "placeholder", "Placeholder");
+            var rightNode = new Node(generateNodeId(), "placeholder", "Placeholder");
+            var tranSrc = new Transition(decisionNode);
+            source.addTransition(tranSrc);
+            var tranDecsnL = new Transition(leftNode);
+            decisionNode.addTransition(tranDecsnL);
+            var tranDecsnR = new Transition(rightNode);
+            decisionNode.addTransition(tranDecsnR);
+            var tranLeft = new Transition(target);
+            leftNode.addTransition(tranLeft);
+            var tranRight = new Transition(target);
+            rightNode.addTransition(tranRight);
           }else{
-            var oldTrans = null;
-            if (source.transitions.length === 1) {
-              oldTrans = source.transitions[0];
-            } else {
-              source.transitions.forEach(function(tran){
-                if (tran.targetNode === target) {
-                  oldTrans = tran;
-                  return false;
-                }
-              });
-            }
-            source.removeTransition(oldTrans);
-            var node = new Node(generateNodeId(), type);
-            var trans = new Transition(node);
-            source.addTransition(trans);
-            trans = new Transition(target);
-            node.addTransition(trans);
+            var actionNode = new Node(generateNodeId(), "action", "Action");
+            var tranSrc = new Transition(actionNode);
+            source.addTransition(tranSrc);
+            var tranAct = new Transition(target);
+            actionNode.addTransition(tranAct);
           }
         };
 
         Workflow.prototype.init = function() {
-          var src = new Node('node-start', 'start');
-          var dest = new Node('node-end', 'end');
+          var src = new Node('node-start', 'start', "Start");
+          var dest = new Node('node-end', 'end', 'End');
           this.startNode = src;
           var trans = new Transition(dest);
           src.addTransition(trans);
@@ -116,11 +128,11 @@
         var renderNode = function(source) {
           var target = source.transitions[0].targetNode;
           if ($('#'+source.id).length === 0) {
-            var sourceNode = $("<div class='item node'>").attr("id", source.id).text(source.id);
+            var sourceNode = $("<div class='item node'>").attr("id", source.id).text(source.name);
             $("#diagramContainer").append(sourceNode);
           }
           if ($('#'+target.id).length === 0) {
-            var targetNode = $("<div class='item node'>").attr("id", target.id).text(target.id);
+            var targetNode = $("<div class='item node'>").attr("id", target.id).text(target.name);
             $("#diagramContainer").append(targetNode);
           }
 
