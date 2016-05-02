@@ -20,7 +20,7 @@
 	<select id="nodetypetext">
 		  <option value="action">action</option>
 		  <option value="decision">decision</option>
-		 
+
 		</select>
     <div id="diagramContainer">
 
@@ -31,70 +31,107 @@
     <script src="http://cdnjs.cloudflare.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
     <script src="http://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.9.2/jquery-ui.min.js"></script>
     <script src="http://cdnjs.cloudflare.com/ajax/libs/jsPlumb/1.4.1/jquery.jsPlumb-1.4.1-all-min.js"></script>
-	<script src="dagre.js"></script>
-	
+	  <script src="dagre.js"></script>
+
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.6.1/css/font-awesome.min.css">
 
     <script>
-		var g = new dagre.graphlib.Graph();
-		g.setGraph({});
-		g.setDefaultEdgeLabel(function() { return {}; });
-		
-		console.log("graphhh==",g);
-		var idCount=0;
-		function generateNodeId(){
-			return "node_"+(idCount++);
-		};
-        function Node(id, type,next) {
+  		var g = new dagre.graphlib.Graph();
+  		g.setGraph({});
+  		g.setDefaultEdgeLabel(function() { return {}; });
+
+  		console.log("graphhh==",g);
+  		var idCount=0;
+  		function generateNodeId(){
+  			return "node_"+(idCount++);
+  		};
+        function Node(id, type) {
           this.id = id;
           this.type = type;
-          this.next=next;
+          this.transitions = [];
         };
 
-       function Workflow() {
-          this.startNode;
-          this.init = function() {
-            var endNode=new Node("node-end", "end");
-			this.startNode=new Node("node-start", "start",endNode);
-          };
-		  this.addNode=function(source,target){
-			var type=$("#nodetypetext").val();
-			console.log("node type==="+type);
-			if ("decision"===type){
-				
-				var node1=new Node(generateNodeId(),"dummy",target);
-				var node2=new Node(generateNodeId(),"dummy",target);
-				var decisionNode=new Node(generateNodeId(),"decision");
-			}else{
-				var node=new Node(generateNodeId(),type,target);
-				source.next=node;
-			}
-		  }
+        Node.prototype.addTransition = function(trans){
+          if (trans && this.transitions.indexOf(trans) === -1) {
+            this.transitions.push(trans);
+          }
+        }
+
+        Node.prototype.removeTransition = function(trans){
+          if (trans && this.transitions.indexOf(trans) > -1) {
+            this.transitions.splice(this.transitions.indexOf(trans), 1);
+          }
+        }
+
+        function Transition(target, type, condition){
+          this.id = "transistion_" + Date.now();
+          this.targetNode = target || null;
+          this.type = type || '';
+          this.condition = condition || '';
+        }
+
+        function Workflow() {
+          this.startNode = null;
+        };
+
+        Workflow.prototype.addNode = function(source, target){
+          var type=$("#nodetypetext").val();
+          console.log("node type==="+type);
+          if ("decision"===type){
+            // var node1=new Node(generateNodeId(),"dummy",target);
+            // var node2=new Node(generateNodeId(),"dummy",target);
+            // var decisionNode=new Node(generateNodeId(),"decision");
+          }else{
+            var oldTrans = null;
+            if (source.transitions.length === 1) {
+              oldTrans = source.transitions[0];
+            } else {
+              source.transitions.forEach(function(tran){
+                if (tran.targetNode === target) {
+                  oldTrans = tran;
+                  return false;
+                }
+              });
+            }
+            source.removeTransition(oldTrans);
+            var node = new Node(generateNodeId(), type);
+            var trans = new Transition(node);
+            source.addTransition(trans);
+            trans = new Transition(target);
+            node.addTransition(trans);
+          }
+        };
+
+        Workflow.prototype.init = function() {
+          var src = new Node('node-start', 'start');
+          var dest = new Node('node-end', 'end');
+          this.startNode = src;
+          var trans = new Transition(dest);
+          src.addTransition(trans);
         };
 
         var workflow = new Workflow();
         workflow.init();
-        var renderNode=function(node){
-          //var node = workflow.node;
-          var source = node;
-          var target = node.next;
+
+        var renderNode = function(source) {
+          var target = source.transitions[0].targetNode;
           if ($('#'+source.id).length === 0) {
-            var sourceNode=$("<div class='item node'>").attr("id", source.id).text(source.id);
+            var sourceNode = $("<div class='item node'>").attr("id", source.id).text(source.id);
             $("#diagramContainer").append(sourceNode);
           }
           if ($('#'+target.id).length === 0) {
-            var targetNode=$("<div class='item node'>").attr("id", target.id).text(target.id);
+            var targetNode = $("<div class='item node'>").attr("id", target.id).text(target.id);
             $("#diagramContainer").append(targetNode);
           }
 
           jsPlumb.connect({
               source:source.id,
               target:target.id,
-			   connector:[ "Flowchart", { curviness:100} ],
-			  paintStyle:{lineWidth:1,strokeStyle:'rgb(243,230,18)'},
+			        connector:[ "Flowchart", { curviness:100} ],
+			        paintStyle:{lineWidth:1,strokeStyle:'rgb(243,230,18)'},
               endpoint:["Rectangle", { width:10, height:8 } ],
-			  endpointStyle:{fillStyle:'rgb(243,229,0)'},
-			  anchors: ["Bottom", "Top"],
+			        endpointStyle:{fillStyle:'rgb(243,229,0)'},
+			        anchors: ["Bottom", "Top"],
               overlays:[
                     ["Label" , { id: source.id+"_"+target.id+"_"+"connector", cssClass :"fa fa-plus",
                     events:{
@@ -115,60 +152,60 @@
                   }]
               ]
           });
-          if (node.next && node.next.type!=="end"){
-              renderNode(node.next);
+          if (source.transitions.length > 0){
+            source.transitions.forEach(function(tran){
+              if (tran.targetNode.type !== 'end') {
+                renderNode(tran.targetNode);
+              }
+            });
           }
 
         }
-       
+
         var rerender=function(){
-            //$("#diagramContainer").empty();
-            jsPlumb.detachEveryConnection();
-            renderWorkflow(workflow);
-			
+          //$("#diagramContainer").empty();
+          jsPlumb.detachEveryConnection();
+          renderWorkflow(workflow);
         };
-		
-		 var renderWorkflow = function(workflow) {
+
+		    var renderWorkflow = function(workflow) {
           console.log("Workflow...", workflow);
           renderNode(workflow.startNode);
-		  layout();
+		      layout();
         };
-		
+
         jsPlumb.ready(function() {
           renderWorkflow(workflow);
-	
         });
-		function layout(){
-		
-			var g = new dagre.graphlib.Graph();
-			g.setGraph({rankdir:"TB",  ranksep: 75});
-			g.setDefaultEdgeLabel(function() { return {}; });
-			var nodes = $(".node"); 
-			for (var i = 0; i < nodes.length; i++) {
-				var n = $(nodes[i]);
-				g.setNode(n.attr("id"), {width: n.width(), height: n.height()});
-			}
-			var edges = jsPlumb.getConnections();
-			for (var i = 0; i < edges.length; i++) {
-				var c = edges[i];
-				g.setEdge(c.source.attr("id"),c.target.attr("id"));
-			}
-			// calculate the layout (i.e. node positions)
-			dagre.layout(g);
-			g.nodes().forEach(function(v) {
-				try{
-				console.log("y=="+g.node(v).y );
-				console.log("x=="+g.node(v).x );
-				$("#" + v).css("left", g.node(v).x + "px");
-				$("#" + v).css("top",g.node(v).y + "px");
-				}catch(err){
-				}
-				
-			});
-			jsPlumb.repaintEverything();
-		}
-		
-		
+		  function layout(){
+  			var g = new dagre.graphlib.Graph();
+  			g.setGraph({rankdir:"TB",  ranksep: 75});
+  			g.setDefaultEdgeLabel(function() { return {}; });
+  			var nodes = $(".node");
+  			for (var i = 0; i < nodes.length; i++) {
+  				var n = $(nodes[i]);
+  				g.setNode(n.attr("id"), {width: n.width(), height: n.height()});
+  			}
+  			var edges = jsPlumb.getConnections();
+  			for (var i = 0; i < edges.length; i++) {
+  				var c = edges[i];
+  				g.setEdge(c.source.attr("id"),c.target.attr("id"));
+  			}
+  			// calculate the layout (i.e. node positions)
+  			dagre.layout(g);
+  			g.nodes().forEach(function(v) {
+  				try{
+  				console.log("y=="+g.node(v).y );
+  				console.log("x=="+g.node(v).x );
+  				$("#" + v).css("left", g.node(v).x + "px");
+  				$("#" + v).css("top",g.node(v).y + "px");
+  				}catch(err){
+  				}
+  			});
+  			jsPlumb.repaintEverything();
+  		}
+
+
     </script>
 
 </body>
