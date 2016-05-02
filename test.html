@@ -42,6 +42,7 @@
 
   		console.log("graphhh==",g);
   		var idCount=0;
+      var nameCount = 0;
   		function generateNodeId(){
   			return "node_"+(idCount++);
   		};
@@ -92,9 +93,9 @@
           source.removeTransition(oldTrans);
 
           if ("decision" === type){
-            var decisionNode = new Node(generateNodeId(), "decision", "Decision");
-            var leftNode = new Node(generateNodeId(), "placeholder", "Placeholder");
-            var rightNode = new Node(generateNodeId(), "placeholder", "Placeholder");
+            var decisionNode = new Node(generateNodeId(), "decision", "Decision" + nameCount++);
+            var leftNode = new Node(generateNodeId(), "placeholder", "Placeholder" + nameCount++);
+            var rightNode = new Node(generateNodeId(), "placeholder", "Placeholder" + nameCount++);
             var tranSrc = new Transition(decisionNode);
             source.addTransition(tranSrc);
             var tranDecsnL = new Transition(leftNode);
@@ -106,7 +107,7 @@
             var tranRight = new Transition(target);
             rightNode.addTransition(tranRight);
           }else{
-            var actionNode = new Node(generateNodeId(), "action", "Action");
+            var actionNode = new Node(generateNodeId(), "action", "Action" + nameCount++);
             var tranSrc = new Transition(actionNode);
             source.addTransition(tranSrc);
             var tranAct = new Transition(target);
@@ -126,55 +127,51 @@
         workflow.init();
 
         var renderNode = function(source) {
-          var target = source.transitions[0].targetNode;
-          if ($('#'+source.id).length === 0) {
-            var sourceNode = $("<div class='item node'>").attr("id", source.id).text(source.name);
-            $("#diagramContainer").append(sourceNode);
-          }
-          if ($('#'+target.id).length === 0) {
-            var targetNode = $("<div class='item node'>").attr("id", target.id).text(target.name);
-            $("#diagramContainer").append(targetNode);
-          }
-
-          jsPlumb.connect({
-              source:source.id,
-              target:target.id,
-			        connector:[ "Flowchart", { curviness:100} ],
-			        paintStyle:{lineWidth:1,strokeStyle:'rgb(243,230,18)'},
-              endpoint:["Rectangle", { width:10, height:8 } ],
-			        endpointStyle:{fillStyle:'rgb(243,229,0)'},
-			        anchors: ["Bottom", "Top"],
-              overlays:[
-                    ["Label" , { id: source.id+"_"+target.id+"_"+"connector", cssClass :"fa fa-plus",
-                    events:{
-                      click:function(labelOverlay, originalEvent) {
-                        var connectorSource = source;
-                        var connectorTarget = target;
-                        workflow.addNode(source,target);
-                        console.log(connectorSource);
-                        console.log(connectorTarget);
-                        console.log("click on label overlay for :", labelOverlay.component);
-                        setTimeout(function(){
-                      //    jsPlumb.repaintEverything();
-                          rerender();
-                        },1);
-
-                      }
-                    }
-                  }]
-              ]
-          });
-          if (source.transitions.length > 0){
-            source.transitions.forEach(function(tran){
-              if (tran.targetNode.type !== 'end') {
-                renderNode(tran.targetNode);
+          if (source.transitions.length > 0) {
+            source.transitions.forEach(function(transition) {
+              var target = transition.targetNode;
+              if ($('#'+source.id).length === 0) {
+                var sourceNode = $("<div class='item node'>").attr("id", source.id).text(source.name);
+                $("#diagramContainer").append(sourceNode);
               }
+              if ($('#'+target.id).length === 0) {
+                var targetNode = $("<div class='item node'>").attr("id", target.id).text(target.name);
+                $("#diagramContainer").append(targetNode);
+              }
+
+              jsPlumb.connect({
+                  source:source.id,
+                  target:target.id,
+    			        connector:[ "StateMachine"],
+    			        paintStyle:{lineWidth:1,strokeStyle:'rgb(243,230,18)'},
+                  endpoint:["Rectangle", { width:10, height:8 } ],
+    			        endpointStyle:{fillStyle:'rgb(243,229,0)'},
+    			        anchors: ["Bottom", "Top"],
+                  overlays:[
+                      ["Label" , { id: source.id+"_"+target.id+"_"+"connector", cssClass :"fa fa-plus",
+                      events:{
+                        click:function(labelOverlay, originalEvent) {
+                          var connectorSource = source;
+                          var connectorTarget = target;
+                          workflow.addNode(source,target);
+                          console.log(connectorSource);
+                          console.log(connectorTarget);
+                          console.log("click on label overlay for :", labelOverlay.component);
+                          setTimeout(function(){
+                            rerender();
+                          },1);
+                        }
+                      }
+                    }]
+                  ]
+              });
+
+              renderNode(target);
             });
           }
-
         }
 
-        var rerender=function(){
+        var rerender = function(){
           //$("#diagramContainer").empty();
           jsPlumb.detachEveryConnection();
           renderWorkflow(workflow);
